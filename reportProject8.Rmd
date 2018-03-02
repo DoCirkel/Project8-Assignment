@@ -1,0 +1,95 @@
+---
+title: 'Peer-graded Assignment: Prediction Assignment Writeup'
+author: "D.R. Cirkel"
+date: "2 maart 2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Executive Summary
+In this report, we try to fit a model in order to predict the class of the movement of a person wearing a Fitbit. We use three different technique. That is, random forest, regression tree and boosted forest. It is concluded that random forest has the highest accuracy. With the use of this model we predict the classes of the movements of people in a set without classes. 
+
+
+## Introduction
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, the goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har.
+
+## Data
+We load the data and have a quick look at the columns.
+
+```{r} 
+url.train <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+url.test <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+training.orig <- read.csv(url(url.train), na.strings = c("NA", "", "#DIV0!"))
+testing.orig <- read.csv(url(url.test), na.strings = c("NA", "", "#DIV0!"))
+```
+
+When doing ```head(training.orig)``` there seem to be a lot of "NA"-columns. Also, the first 7 columns consist of meta data, which should not be related the classe column. We delete these columns as follows: 
+
+```{r} 
+# remove first 7 columns 
+training <- training.orig[,-c(1:7)]
+testing <- testing.orig[,-c(1:7)]
+
+# remove all empty columns
+training <- training[, colSums(is.na(training)) == 0]
+testing <- testing[, colSums(is.na(testing)) == 0]
+```
+
+We found out there is no 'classe' column in the testing set. Therefore, we cannot test on that set. We have to divide our trainingset into our own train and test set.
+
+```{r}
+library(caret)
+inTrain <- createDataPartition(training$classe, p = 0.8, list = F)
+
+training.new <- training[inTrain, ]
+testing.new <- training[-inTrain, ]
+```
+
+## Models
+
+We have chosen to fit a random forest (rf), regression tree (rpart) and boosted trees (gbm) for all the variables. 
+
+### Random forest
+```{r}
+library(randomForest)
+fit_rf <- randomForest(classe ~., data = training.new, method = "class")
+pred_rf <- predict(fit_rf, newdata = testing.new)
+confusionMatrix(testing.new$classe, pred_rf)
+
+``` 
+We see this model has an accuracy of 99%, which is really high. However, we will still check the other models just to be sure.
+
+
+### Regression tree
+```{r}
+library(rpart)
+fit_rpart <- rpart(classe ~., data = training.new, method = "class")
+pred_rpart <- predict(fit_rpart, newdata = testing.new, type = "class")
+confusionMatrix(testing.new$classe, pred_rpart)
+
+``` 
+This model predicts with an accuracy of just 74%.
+
+### Boosted trees
+```{r}
+fit_gbm <- train(classe ~., data = training.new, method = "gbm", na.action=na.exclude, verbose=FALSE)
+pred_gbm <- predict(fit_gbm, newdata = testing.new)
+confusionMatrix(testing.new$classe, pred_gbm)
+
+``` 
+The accuracy of this model is 96%. 
+
+We can conclude that the random forest model predicts with the highest accuracy. 
+
+## Prediction
+
+With this model, we can predict what the classe of the testing set will be: 
+
+```{r} 
+predict(fit_rf, newdata = testing)
+```
